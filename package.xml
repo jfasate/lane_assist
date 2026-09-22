@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>lane_assist</name>
+  <version>0.1.0</version>
+  <description>Camera lane assist for F1Tenth: detect painted lane markings and
+  publish the ego lane centre as a reference horizon on /planning/ref_path.
+  Perception only — the controller (lpv_mpc_gazebo) and the simulator
+  (f1tenth_gym_gazebo) stay separate packages and are coupled only by that
+  topic, so this runs unchanged against the real car.</description>
+  <maintainer email="jayesh@todo.com">jayesh</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>ackermann_msgs</depend>
+  <depend>cv_bridge</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
