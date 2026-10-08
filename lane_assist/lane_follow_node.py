@@ -1,23 +1,13 @@
 #!/usr/bin/env python3
 """Pure-pursuit lane follower: /planning/ref_path -> /drive.
 
-The diagnostic counterpart to lpv_mpc_node for the camera pipeline. It answers
-one question the MPC stack cannot answer cleanly, because too much sits between
-the camera and the wheels: does lane_detector produce a reference good enough to
-drive on?
-
-  car keeps the lane  -> perception is sound, the MPC layer is what is fighting
-  car does not        -> the fault is in the detector
-
-Why pure pursuit is enough here: the reference is ~2.3 m long (the camera cannot
-see further) and the speed is whatever the detector profiled, so at 1.5 m/s
-there is ~1.5 s of preview and the lane is a quadratic. There is nothing to
-optimise, so the whole apparatus the MPC brings -- 60-step QP, slack variables,
-recovery/wall/obstacle guards, speed blending -- buys nothing and has its own
-failure modes.
-
-The reference arrives in the EGO frame (base_link), so there is no transform
-here at all, and the whole class of frame bugs cannot occur.
+Follows the ViT's reference path (vit_lane_node). The path arrives in the EGO
+frame (base_link), so there is no transform here and no frame bug can occur.
+It takes the first path point at least `lookahead` ahead and steers to it;
+speed is the path's own vx (the ViT node lowers it before a stop), capped by
+max_speed. With free_topic set (lidar_guard), speed is also capped by
+sqrt(2 * brake_decel * (free - stop_margin)) and a silent guard stops the car.
+Every failure (no path, stale path, HOLD, no point ahead) commands a full stop.
 
 Self-check (no ROS needed):  python3 lane_follow_node.py --selfcheck
 """
@@ -74,6 +64,10 @@ def _main_ros():
             self.declare_parameter('control_rate_hz', 50.0)
             self.declare_parameter('enable_csv_log', True)
             self.declare_parameter('log_dir', '')
+            self.declare_parameter('free_topic', '')
+            self.declare_parameter('brake_decel', 1.0)
+            self.declare_parameter('stop_margin', 0.4)
+            self.declare_parameter('free_timeout', 0.5)
 
             g = lambda k: self.get_parameter(k).value            # noqa: E731
             self.lookahead = float(g('lookahead'))
@@ -82,6 +76,13 @@ def _main_ros():
             self.max_speed = float(g('max_speed'))
             self.stop_thresh = float(g('stop_speed_thresh'))
             self.ref_timeout = float(g('ref_timeout'))
+            # emergency brake (lidar_guard): free distance ahead along the path;
+            # '' = off. Silent guard while enabled = stop, never drive blind.
+            self.free_topic = str(g('free_topic'))
+            self.brake = float(g('brake_decel'))
+            self.stop_margin = float(g('stop_margin'))
+            self.free_timeout = float(g('free_timeout'))
+            self.free, self.free_t = None, None
 
             self.path = None
             self.path_t = None
@@ -95,6 +96,9 @@ def _main_ros():
                                      self._ref_cb, latched)
             self.create_subscription(Odometry, str(g('odom_topic')),
                                      self._odom_cb, best)
+            if self.free_topic:
+                from std_msgs.msg import Float64
+                self.create_subscription(Float64, self.free_topic, self._free_cb, 10)
             self._drive = self.create_publisher(
                 AckermannDriveStamped, str(g('drive_topic')), 1)
 
@@ -111,6 +115,10 @@ def _main_ros():
                 return
             self.path = raw.reshape(-1, 6)
             self.path_t = self.get_clock().now().nanoseconds * 1e-9
+
+        def _free_cb(self, msg):
+            self.free = float(msg.data)
+            self.free_t = self.get_clock().now().nanoseconds * 1e-9
 
         def _odom_cb(self, msg):
             self.vx = msg.twist.twist.linear.x
@@ -143,8 +151,16 @@ def _main_ros():
             steer, gx, gy, alpha = got
             steer = float(np.clip(steer, -self.max_steer, self.max_steer))
             speed = min(path_vx, self.max_speed)
+            status = 'ok'
+            if self.free_topic:
+                if self.free_t is None or now - self.free_t > self.free_timeout:
+                    speed, status = 0.0, 'guard_stale'
+                else:
+                    v_free = math.sqrt(2.0 * self.brake * max(0.0, self.free - self.stop_margin))
+                    if v_free < speed:
+                        speed, status = (v_free, 'guard_brake') if v_free > self.stop_thresh else (0.0, 'guard_stop')
             self._publish(steer, speed)
-            self._log('ok', now, (steer, speed, gx, gy, alpha, age))
+            self._log(status, now, (steer, speed, gx, gy, alpha, age))
 
         def _publish(self, steer, speed):
             m = AckermannDriveStamped()

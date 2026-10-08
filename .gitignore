@@ -1,7 +1,14 @@
+# Python / colcon
 __pycache__/
 *.pyc
+.pytest_cache/
 build/
 install/
+
+# Run logs, collected data and model weights stay out of git (large, regenerable):
+#   log/      closed-loop test and vit_run folders
+#   dataset/  collected frames, labels, image caches (~56 GB)
+#   models/   checkpoints and the ImageNet backbone .npz
 log/
-bags/
-ground_truth/
+dataset/
+models/

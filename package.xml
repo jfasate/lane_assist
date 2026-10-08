@@ -3,11 +3,11 @@
 <package format="3">
   <name>lane_assist</name>
   <version>0.1.0</version>
-  <description>Camera lane assist for F1Tenth: detect painted lane markings and
-  publish the ego lane centre as a reference horizon on /planning/ref_path.
-  Perception only — the controller (lpv_mpc_gazebo) and the simulator
-  (f1tenth_gym_gazebo) stay separate packages and are coupled only by that
-  topic, so this runs unchanged against the real car.</description>
+  <description>ViT lane assist for F1Tenth: a Vision Transformer turns one camera
+  image into a reference path (lane keeping, lane changes around obstacles, stop
+  before a full road block) on /planning/ref_path; pure pursuit follows it and a
+  3D-lidar safety brake limits the speed. Also holds the offline pipeline (tools/):
+  map generation, data collection, labelling and training.</description>
   <maintainer email="jayesh@todo.com">jayesh</maintainer>
   <license>MIT</license>
 
@@ -17,11 +17,22 @@
   <depend>std_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>sensor_msgs</depend>
-  <depend>visualization_msgs</depend>
+  <depend>geometry_msgs</depend>
   <depend>ackermann_msgs</depend>
-  <depend>cv_bridge</depend>
+  <exec_depend>sensor_msgs_py</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
+  <exec_depend>python3-shapely</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <!-- PyTorch (torch) is installed with pip; it has no rosdep key. -->
 
   <test_depend>ament_lint_auto</test_depend>
+  <test_depend>python3-pytest</test_depend>
+  <test_depend>launch_testing</test_depend>
+  <test_depend>launch_testing_ros</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
   <export>

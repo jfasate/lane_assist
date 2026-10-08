@@ -19,12 +19,14 @@ setup(
     zip_safe=True,
     maintainer='jayesh',
     maintainer_email='jayesh@todo.com',
-    description='Camera lane assist: painted lane markings -> /planning/ref_path',
+    description='ViT lane assist: one camera image -> reference path + stop, with a lidar safety brake',
     license='MIT',
     entry_points={
         'console_scripts': [
-            'lane_detector = lane_assist.lane_detector:main',
             'lane_follow_node = lane_assist.lane_follow_node:main',
+            'road_collect = lane_assist.road_collect:main',
+            'vit_lane_node = lane_assist.vit_lane_node:main',
+            'lidar_guard = lane_assist.lidar_guard:main',
         ],
     },
 )
